@@ -21,26 +21,23 @@ import javax.swing.JPanel;
 public class GameFrame extends JFrame{
 	private CardLayout card = new CardLayout();
 	private JPanel start = new JPanel(card);
-	Background background = new Background("src/back.png");
+	Background background = new Background("src/startBack.png");
 	
 	private String current;
 	private Deque<String> historyStack = new ArrayDeque<>();
 	
 	public static String MAIN = "MAIN";
-	public static String LEVEL = "LEVEL";
 	public static String LOGIN = "LOGIN";
 	public static String GAME = "GAME";
 	public static String SCORE = "SCORE";
 	
 	private JButton startBtn = new JButton("시작");
 	private JButton scoreBtn = new JButton("점수 보기");
-	private JButton levelBtn = new JButton("난이도 조절");
 	private JLabel lMessage;
 	
 	private LoginPanel login = new LoginPanel(this);
 	private ScoreStartPanel scoreStart = new ScoreStartPanel();
 
-	private LevelPanel level = new LevelPanel(this);
 	private GamePanel gamePanel;
 	private ScorePanel score = new ScorePanel(this);
 	
@@ -72,7 +69,7 @@ public class GameFrame extends JFrame{
 			 public void actionPerformed(ActionEvent e) {
 				 boolean found = login.getFound();
 				 boolean ok = login.getOk();
-				 
+
 				 if(found == true && ok == true) { // 로그인 성공 시
 					 // 이 부분부터 게임 시작임
 					 initGame();
@@ -91,27 +88,8 @@ public class GameFrame extends JFrame{
 			}
 		 });
 		 
-		 levelBtn.addActionListener(new ActionListener() {
-			 @Override
-			 public void actionPerformed(ActionEvent e) {
-				 boolean found = login.getFound();
-				 boolean ok = login.getOk();
-				 
-				 if(found == true && ok == true) { // 로그인 성공 시
-					 // 게임 레벨 설정 시작
-					 chooseLevel();
-				 }
-				 else { // 로그인 실패 시
-					 lMessage.setText("로그인을 먼저 해주세요.");
-					 return;
-				 }
-				 chooseLevel();
-			 }
-		 });
-		 
 		 startBtn.setBounds(300, 800, 100, 40);
-		 scoreBtn.setBounds(450, 800, 100, 40);
-		 levelBtn.setBounds(600, 800, 100, 40);
+		 scoreBtn.setBounds(600, 800, 100, 40);
 		 
 		 login.setBounds(350, 520, 320, 200);
 		 
@@ -119,12 +97,10 @@ public class GameFrame extends JFrame{
 		 
 		 background.add(startBtn);
 		 background.add(scoreBtn);
-		 background.add(levelBtn);
 		 background.add(login);
 		 background.add(scoreStart);
 		 
 		 start.add(background, MAIN);
-		 start.add(level, LEVEL);
 		 start.add(score, SCORE);
 		 
 		 gamePanel = new GamePanel(this);
@@ -156,21 +132,7 @@ public class GameFrame extends JFrame{
 		start.repaint();
 	}
 	
-	private void chooseLevel() {
-		show(LEVEL);
-	}
-	
 	private void initGame() {
-		/*getContentPane().removeAll(); // 기존의 컴포넌트들 전부 삭제
-		getContentPane().setLayout(null);
-		
-		revalidate();
-		repaint();
-		
-		gamePanel = new GamePanel();
-		gamePanel.setBounds(0, 0, this.getWidth(), this.getHeight());
-		add(gamePanel);
-		gamePanel.startGame();*/
 		show(GAME);
 		gamePanel.startGame();
 	}
