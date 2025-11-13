@@ -187,22 +187,4 @@ public class LoginPanel extends JPanel{
 		}
 		return "회원가입 성공";
 	}
-	
-	/*private class loginInfo {
-		private String userName;
-		private int pw;
-		
-		public loginInfo(String userName, int pw) {
-			this.userName = userName;
-			this.pw = pw;
-		}
-		
-		public String getUserName() {
-			return userName;
-		}
-		
-		public int getPw() {
-			return pw;
-		}
-	}*/
 }
