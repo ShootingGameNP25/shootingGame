@@ -5,6 +5,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -19,7 +20,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
 public class ScorePanel extends Background {
-
     private GameFrame gameFrame;
     private JButton backBtn = new JButton("Back");
     private HashMap<String, Integer> teamScoreMap = new HashMap<>();
@@ -27,7 +27,7 @@ public class ScorePanel extends Background {
     private JPanel scoreShowPanel = new JPanel();
 
     public ScorePanel(GameFrame gameFrame) {
-        super("src/startBack.png");
+        super("shootingBack.png");
         this.gameFrame = gameFrame;
 
         setLayout(null);
@@ -35,14 +35,14 @@ public class ScorePanel extends Background {
         // 메인 패널 설정
         scoreShowPanel.setLayout(new GridLayout(0, 1, 5, 5));
         scoreShowPanel.setBackground(new Color(40, 0, 80));
-        scoreShowPanel.setBounds(350, 50, 300, 467);
+        scoreShowPanel.setBounds(250, 80, 500, 700);
 
         // 설명 라인 추가
         makeExplainPanel();
 
         // 스크롤 설정
         JScrollPane scrollPane = new JScrollPane(scoreShowPanel);
-        scrollPane.setBounds(350, 50, 300, 467);
+        scrollPane.setBounds(250, 80, 500, 700);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
@@ -55,7 +55,7 @@ public class ScorePanel extends Background {
         showScore();
 
         // 뒤로가기 버튼
-        backBtn.setBounds(0, 0, 100, 30);
+        backBtn.setBounds(450, 800, 100, 30);
         add(backBtn);
 
         backBtn.addActionListener(new ActionListener() {
@@ -69,7 +69,7 @@ public class ScorePanel extends Background {
     private void showScore() {
         try {
             BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new FileInputStream("src/score.txt"), StandardCharsets.UTF_8)
+                new InputStreamReader(new FileInputStream("score.txt"), StandardCharsets.UTF_8)
             );
 
             String line;
@@ -97,8 +97,13 @@ public class ScorePanel extends Background {
                 addScore(i + 1, entry);
             }
 
-        } catch (IOException e) {
-            System.out.println("파일 읽는 중 오류 발생");
+        }
+		catch(FileNotFoundException e) {
+			System.out.println("score.txt 파일을 찾을 수 없음");
+			System.exit(0);
+		}
+        catch (IOException e) {
+            System.out.println("score.txt 파일 읽는 중 오류 발생");
         }
     }
 
