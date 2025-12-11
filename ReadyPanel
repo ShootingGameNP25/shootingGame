@@ -1,0 +1,365 @@
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Container;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.table.DefaultTableModel;
+
+public class ReadyPanel extends JPanel{
+    private GameFrame gameFrame;
+    private GameClient client;
+    private ChatPanel chatPanel;
+    private PlayerPanel playerPanel;
+    private DefaultTableModel roomTable;
+    
+    private JPanel rightTopPanel = new JPanel();
+    
+    MyDialog dialog;
+    DelDialog delLog;
+        
+    // 현재 유저가 참여하고 있는 방
+    private String currentRoom = null;
+
+    public ReadyPanel(GameFrame gameFrame, ChatPanel chatPanel, PlayerPanel playerPanel) {
+        this.gameFrame = gameFrame;
+        this.chatPanel = chatPanel;
+        this.playerPanel = playerPanel;
+        
+
+        setLayout(new BorderLayout());
+
+        // Background 패널
+        JPanel leftPanel = new Background("readyBack.png");
+        leftPanel.setLayout(null);
+
+        // 제목 레이블
+        JLabel lblNewLabel = new JLabel("방 목록");
+        lblNewLabel.setFont(new Font("굴림", Font.PLAIN, 20));
+        lblNewLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        lblNewLabel.setBounds(200, 41, 274, 38);
+        lblNewLabel.setForeground(Color.WHITE);
+        leftPanel.add(lblNewLabel);
+        
+        // 방과 관련된 패널
+        JPanel roomPanel = new JPanel();
+        roomPanel.setBounds(187, 89, 321, 250);
+        roomPanel.setLayout(null);
+        roomPanel.setOpaque(false);// 배경 투명
+        leftPanel.add(roomPanel);
+        
+        // JTabel 준비
+        String header[] = { "방 이름", "방 설명" };
+        
+        // JTable 모델 생성 및 테이블 생성
+        roomTable = new DefaultTableModel(header, 0);
+        JTable generatedRoom = new JTable(roomTable);
+        
+        // 모델 수정 불가능하게 하는 설정
+        generatedRoom.setDefaultEditor(Object.class, null);
+
+        // 스크롤 바 부착
+        JScrollPane scrollPane = new JScrollPane(generatedRoom);
+        scrollPane.setBounds(0, 0, 296, 250);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        roomPanel.add(scrollPane);
+
+        // 방 생성 버튼 로직
+        JButton addRoomBtn = new JButton("방 생성");
+        addRoomBtn.setBounds(187, 366, 97, 23);
+        addRoomBtn.addActionListener(new ActionListener() {
+        	@Override
+        	public void actionPerformed(ActionEvent e) {
+        		dialog = new MyDialog(gameFrame, ReadyPanel.this.client, "방 생성");
+        		
+        		// 확인 버튼을 누르고 생성창을 닫기 위해서는 client가 해당 창의 정보를 알고 있어야 됨
+        		client.setCreateRoomDialog(dialog);
+        		
+        		dialog.setVisible(true);
+        	}
+        });
+        leftPanel.add(addRoomBtn);
+        
+        // 방 삭제 버튼 로직
+        JButton delRoomBtn = new JButton("방 삭제");
+        delRoomBtn.setBounds(387, 366, 97, 23);
+        delRoomBtn.addActionListener(new ActionListener() {
+        	@Override
+        	public void actionPerformed(ActionEvent e) {
+        		int row = generatedRoom.getSelectedRow();
+        		if(row == -1) {
+        			JOptionPane.showMessageDialog(null, "삭제할 방을 선택하세요!");
+        			return;
+        		}
+        		
+        		delLog = new DelDialog(gameFrame, ReadyPanel.this.client, "방 삭제");
+        		client.setDelRoomDialog(delLog);
+        		delLog.setVisible(true);
+        	}
+        });
+        leftPanel.add(delRoomBtn);
+ 
+        // 새로고침 버튼 로직
+        JButton refreshBtn = new JButton("새로고침");
+        refreshBtn.setBounds(187, 419, 97, 23);
+        refreshBtn.addActionListener(new ActionListener() {
+        	@Override
+        	public void actionPerformed(ActionEvent e) { // 서버에 요청을 보내서 방 목록들을 가져와야 됨
+        		clearRoomList();
+        		client.giveMeRoomList();
+        	}
+        });
+        leftPanel.add(refreshBtn);
+        
+        // 입장하기 버튼 로직
+        JButton enterRoomBtn = new JButton("입장하기");
+        enterRoomBtn.setBounds(387, 419, 97, 23);
+        enterRoomBtn.addActionListener(new ActionListener() {
+        	@Override
+        	public void actionPerformed(ActionEvent e) {
+        		int row = generatedRoom.getSelectedRow();
+        		
+        		// 방을 선택안하고 입장하기 버튼을 눌렀을 경우
+        		if(row == -1) {
+        			JOptionPane.showMessageDialog(null, "방을 선택하세요!");
+        			return;
+        		}
+        		
+        		String roomName = roomTable.getValueAt(row, 0).toString();
+        		
+        		// 입장 전 기존 플레이어 목록 초기화
+        		playerPanel.resetAll();
+        		playerPanel.clearPlayers();
+        		
+        		currentRoom = roomName;
+        		client.joinRoom(roomName);
+        	}
+        });
+        leftPanel.add(enterRoomBtn);
+
+        // 오른쪽 화면 -> 플레이어 정보 출력
+        rightTopPanel.setLayout(new BorderLayout());
+        rightTopPanel.add(playerPanel, BorderLayout.CENTER);
+
+        JPanel rightBottom = new JPanel();
+        rightBottom.setLayout(new BorderLayout());
+        rightBottom.add(chatPanel, BorderLayout.CENTER);
+
+        JSplitPane verticalSplit = new JSplitPane(
+                JSplitPane.VERTICAL_SPLIT,
+                rightTopPanel,
+                rightBottom
+        );
+        verticalSplit.setDividerLocation(500);
+        verticalSplit.setDividerSize(4);
+
+        JSplitPane horizonSplit = new JSplitPane(
+                JSplitPane.HORIZONTAL_SPLIT,
+                leftPanel,
+                verticalSplit
+        );
+        horizonSplit.setDividerLocation(700);
+        horizonSplit.setDividerSize(4);
+
+        add(horizonSplit, BorderLayout.CENTER);
+    }
+
+    public void setGameClient(GameClient client) {
+    	this.client = client;
+    	
+    	playerPanel.setClient(client);
+    	
+        chatPanel.setGameClient(client); 
+        client.setChatPanel(chatPanel);
+        client.setReadyPanel(this);
+        
+        
+        client.setPlayerPanel(playerPanel);
+        client.setGameFrame(gameFrame);
+    }
+    
+    public void updateRoomList(String roomName, String explain) {
+    	roomTable.addRow(new Object[] { roomName, explain });
+    }
+    
+    // 방 목록 초기화
+    public void clearRoomList() {
+    	roomTable.setRowCount(0);
+    }
+    
+    public void updatePlayerList(String roomName, String userName) {
+    	this.currentRoom = roomName;
+    	
+    	// 이름 표시
+    	playerPanel.setRoomName(roomName);
+    	
+    	// 플레이어 추가
+    	playerPanel.addPlayer(userName);
+    }
+    
+    public void clearPlayers() {
+    	playerPanel.clearPlayers();
+    }
+    
+    public void addPlayer(String user) {
+    	playerPanel.addPlayer(user);
+    }
+    
+    public void updateReadyStatus(String userAbool[]) { // userAbool[0] = 홍길동,true userAbool[1] = 홍수몬,false
+    	for(int i = 0; i < userAbool.length; i++) {
+    		// part[0] = name, part[1] = ready
+    		String parts[] = userAbool[i].split(",");
+    		
+    		String name = parts[0];
+    		boolean ready = Boolean.parseBoolean(parts[1]);
+    		
+    		playerPanel.setReadyStatus(name, ready);
+    	}
+    }
+    
+    // 호출시 PlayerPanel 교체
+    public void resetPlayerPanel() {
+    	playerPanel.resetAll();
+    	
+    	rightTopPanel.removeAll();
+    	rightTopPanel.add(playerPanel, BorderLayout.CENTER);
+    	rightTopPanel.revalidate();
+    	rightTopPanel.repaint();
+    	
+    	if(client != null) {
+    		client.setPlayerPanel(playerPanel);
+    	}
+    }
+    
+    // 방 삭제와 관련있는 다이어로그
+    class DelDialog extends JDialog{
+    	private JLabel pwLabel = new JLabel("비밀번호 ");
+    	private JPasswordField pw = new JPasswordField(10);
+    	
+    	private JButton okBtn = new JButton("지우기");
+    	private JButton noBtn = new JButton("취소");
+    	
+    	private GameClient client;
+    	
+    	public DelDialog(JFrame frame, GameClient client, String title) {
+    		super(frame, title, true);
+    		this.client = client;
+    		setLayout(new GridLayout(2, 2, 10, 10));
+    		
+    		Container content = getContentPane();
+    		JPanel panel = (JPanel) content;
+    		panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+    		
+    		pwLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    		add(pwLabel); add(pw);
+    		
+    		add(okBtn); add(noBtn);
+    		setSize(400, 250);
+    		
+    		okBtn.addActionListener(new ActionListener() {
+    			@Override
+    			public void actionPerformed(ActionEvent e) {
+    				
+    			}
+    		});
+    		
+    		noBtn.addActionListener(new ActionListener() {
+    			@Override
+    			public void actionPerformed(ActionEvent e) {
+    				dispose(); // 다이얼로그 닫기
+    				setDefaultCloseOperation(DISPOSE_ON_CLOSE); // 자원 해제
+    			}
+    		});
+    		
+    		setLocationRelativeTo(frame);
+    	}
+    }
+    
+    // 방 생성과 관련있는 다이어로그
+    class MyDialog extends JDialog{
+    	private JLabel roomNameLabel = new JLabel("방 이름 ");
+    	private JTextField roomName = new JTextField(10);
+    	
+    	private JLabel explainLabel = new JLabel("방 설명 ");
+    	private JTextField explainRoom = new JTextField(30);
+    	
+    	private JLabel pwLabel = new JLabel("비밀번호 ");
+    	private JPasswordField password = new JPasswordField(10);
+    	
+    	private JButton okBtn = new JButton("생성");
+    	private JButton noBtn = new JButton("취소");
+    	
+    	private GameClient client;
+    	
+    	public MyDialog(JFrame frame, GameClient client, String title) {
+    		super(frame, title, true);
+    		this.client = client;
+    		setLayout(new GridLayout(4, 2, 10, 10));
+    		
+    		// 다이얼로그의 실제 내용을 담고 있는 패널 가져오기
+    		Container content = getContentPane();
+    		
+    		// 그 컨텐츠 영역을 JPanel로 캐스팅하기
+    		JPanel panel = (JPanel) content;
+    		
+    		// 패널에 15px 여백을 주는 테두리를 설정
+    		panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+    		
+    		roomNameLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    		add(roomNameLabel); add(roomName);
+    		
+    		explainLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    		add(explainLabel); add(explainRoom);
+    		
+    		pwLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    		add(pwLabel); add(password);
+    		
+    		add(okBtn); add(noBtn);
+    		setSize(400, 250);
+    		
+    		// 버튼 설정
+    		okBtn.addActionListener(new ActionListener() {
+    			@Override
+    			public void actionPerformed(ActionEvent e) {
+    				String pw = new String(password.getPassword());
+    				
+    				// 방 생성하는데 입력안한 부분이 존재하면
+    				if(roomName.getText().trim().isEmpty() || explainRoom.getText().trim().isEmpty() || pw.trim().isEmpty()) {
+    					JOptionPane.showMessageDialog(MyDialog.this, "빈 칸 없이 입력해주세요");
+    				}
+    				else {
+    					// 클라이언트로 방 정보를 전달 -> 후에 클라이언트에서 서버로 전송
+    					client.deliverInfo(roomName.getText().trim(), explainRoom.getText().trim(), pw.trim());
+    				}
+    			}
+    		});
+    		
+    		noBtn.addActionListener(new ActionListener() {
+    			@Override
+    			public void actionPerformed(ActionEvent e) {
+    				dispose(); // 다이얼로그 닫기
+    				setDefaultCloseOperation(DISPOSE_ON_CLOSE); // 자원 해제
+    			}
+    		});
+    		
+    		// 팝업창을 GameFrame 중앙에 배치
+    		setLocationRelativeTo(frame);
+    	}
+    }
+}
