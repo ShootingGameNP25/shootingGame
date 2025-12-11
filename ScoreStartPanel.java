@@ -51,7 +51,7 @@ public class ScoreStartPanel extends JPanel{
 	
 	private void showScore() {
 		try {
-			BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("src/score.txt"), StandardCharsets.UTF_8));
+			BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("score.txt"), StandardCharsets.UTF_8));
 			String line;
 			
 			// 파일 읽기 및 해시맵에 넣는 작업
@@ -79,11 +79,11 @@ public class ScoreStartPanel extends JPanel{
             }
 		}
 		catch(FileNotFoundException e) {
-			System.out.println("파일을 찾을 수 없음");
+			System.out.println("score.txt 파일을 찾을 수 없음");
 			System.exit(0);
 		}
 		catch(IOException e) {
-			System.out.println("파일 읽는 중 오류 발생");
+			System.out.println("score.txt 파일 읽는 중 오류 발생");
 		}
 	}
 	
