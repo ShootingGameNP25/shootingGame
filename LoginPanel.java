@@ -18,6 +18,7 @@ import javax.swing.JTextField;
 
 public class LoginPanel extends JPanel{
 	private String userName = "";
+	
 	private JLabel name = new JLabel("이름 : ");
 	private JTextField nameTf = new JTextField(10);
 	private JLabel pw = new JLabel("비밀번호 : ");
@@ -59,6 +60,10 @@ public class LoginPanel extends JPanel{
 		loginScreen();
 	}
 	
+	public String getLoggedInUsername() {
+        return userName;
+    }
+	
 	public boolean getFound() {
 		return found;
 	}
@@ -95,7 +100,7 @@ public class LoginPanel extends JPanel{
 		String user = "";
 		String pw;
 		try {
-			BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("src/userInfo.txt"), StandardCharsets.UTF_8));
+			BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("userInfo.txt"), StandardCharsets.UTF_8));
 			String name = nameTf.getText();
 			String password = new String(pwTf.getPassword());
 			String line;
@@ -117,6 +122,7 @@ public class LoginPanel extends JPanel{
 				if(user.equals(name) && password.equals(pw)) {
 					found = true; // 로그인 성공
 					ok = true;
+					this.userName = user;
 					break;
 				}
 				else if(user.equals(name) && !password.equals(pw)){
@@ -134,19 +140,18 @@ public class LoginPanel extends JPanel{
 			pwTf.setText("");
 		}
 		catch(FileNotFoundException e) {
-			System.out.println("파일을 찾을 수 없음");
-			System.exit(0);
+			System.out.println("userInfo.txt 파일을 찾을 수 없음");
 		}
 		catch(IOException e) {
-			System.out.println("파일 읽는 중 오류 발생");
+			System.out.println("userInfo.txt 파일 읽는 중 오류 발생");
 		}
-		return user + " 플레이어님 환영합니다!"; // + " 플레이어님 환영합니다!"
+		return user + " 플레이어님 환영합니다!";
 	}
 	
 	// 회원가입 버튼 함수
 	private String makeInfo() {
 		try {
-			BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("src/userInfo.txt"), StandardCharsets.UTF_8));
+			BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("userInfo.txt"), StandardCharsets.UTF_8));
 			String name = nameTf.getText();
 			String password = new String(pwTf.getPassword());
 			String line;
@@ -168,7 +173,7 @@ public class LoginPanel extends JPanel{
 			}
 			
 			if(!found) { // 아이디가 없을 경우
-				BufferedWriter writer = new BufferedWriter(new FileWriter("src/userInfo.txt", true));
+				BufferedWriter writer = new BufferedWriter(new FileWriter("userInfo.txt", true));
 				writer.write(name + "/" + password);
 				writer.newLine();
 				writer.flush();
@@ -179,11 +184,11 @@ public class LoginPanel extends JPanel{
 			pwTf.setText("");
 		}
 		catch(FileNotFoundException e) {
-			System.out.println("파일을 찾을 수 없음");
+			System.out.println("userInfo.txt 파일을 찾을 수 없음");
 			System.exit(0);
 		}
 		catch(IOException e) {
-			System.out.println("파일 읽는 중 오류 발생");
+			System.out.println("userInfo.txt 파일 읽는 중 오류 발생");
 		}
 		return "회원가입 성공";
 	}
