@@ -14,14 +14,11 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-// new Color(40, 0, 80)
-
-
 // 레벨 별로 순위 보기 만들기
 public class GameFrame extends JFrame{
 	private CardLayout card = new CardLayout();
 	private JPanel start = new JPanel(card);
-	Background background = new Background("src/startBack.png");
+	Background background = new Background("shootingBack.png");
 	
 	private String current;
 	private Deque<String> historyStack = new ArrayDeque<>();
@@ -30,16 +27,23 @@ public class GameFrame extends JFrame{
 	public static String LOGIN = "LOGIN";
 	public static String GAME = "GAME";
 	public static String SCORE = "SCORE";
+	public static String READY = "READY";
 	
 	private JButton startBtn = new JButton("시작");
 	private JButton scoreBtn = new JButton("점수 보기");
 	private JLabel lMessage;
 	
+	private ChatPanel chatPanel = new ChatPanel();
 	private LoginPanel login = new LoginPanel(this);
-	private ScoreStartPanel scoreStart = new ScoreStartPanel();
+	private ScoreStartPanel scoreStartPanel = new ScoreStartPanel(); // 로딩시 보이는 화면에 있는 상위 10명의 점수
+	private ReadyPanel ready;
 
 	private GamePanel gamePanel;
 	private ScorePanel score = new ScorePanel(this);
+	private GameClient client;
+	
+	// PlayerPanel 재사용
+	private PlayerPanel playerPanel = new PlayerPanel(this, false);
 	
 	public GameFrame() {
 		setTitle("게임"); 
@@ -69,9 +73,8 @@ public class GameFrame extends JFrame{
 			 public void actionPerformed(ActionEvent e) {
 				 boolean found = login.getFound();
 				 boolean ok = login.getOk();
-
+				 
 				 if(found == true && ok == true) { // 로그인 성공 시
-					 // 이 부분부터 게임 시작임
 					 initGame();
 				 }
 				 else { // 로그인 실패 시
@@ -93,15 +96,18 @@ public class GameFrame extends JFrame{
 		 
 		 login.setBounds(350, 520, 320, 200);
 		 
-		 scoreStart.setBounds(350, 50, 320, 467);
+		 scoreStartPanel.setBounds(350, 50, 320, 467);
 		 
 		 background.add(startBtn);
 		 background.add(scoreBtn);
 		 background.add(login);
-		 background.add(scoreStart);
+		 background.add(scoreStartPanel);
+		 
+		 ready = new ReadyPanel(this, chatPanel, playerPanel);
 		 
 		 start.add(background, MAIN);
 		 start.add(score, SCORE);
+		 start.add(ready, READY);
 		 
 		 gamePanel = new GamePanel(this);
 		 start.add(gamePanel, GAME);
@@ -133,12 +139,46 @@ public class GameFrame extends JFrame{
 	}
 	
 	private void initGame() {
-		show(GAME);
-		gamePanel.startGame();
+		// 게임 시작시 ReadyPanel 표시
+		show(READY);
+		
+		// 로그인 정보 가져오기
+		String username = login.getLoggedInUsername();
+		
+		// IP와 Port 고정
+		String ip = "127.0.0.1";
+		String port = "30000";
+		
+		client = new GameClient(username, ip, port, lMessage);
+		
+		playerPanel.setClient(client);
+		
+		// ReadyPanel -> GameClient
+		ready.setGameClient(client);
+		
+		// client -> ReadyPanel
+		client.setReadyPanel(ready);
+		
+		// ChatPanel 연결
+		client.setChatPanel(chatPanel);
+		
+		// GamePanel -> client
+		client.setGamePanel(gamePanel);
+		
+		// client -> GameFrame
+		client.setGameFrame(this);
+		
+		// 서버 접속
+		client.connect();
 	}
 	
-	public LoginPanel getLoginPanel() {
-		return login;
+	// GameFrame이 PlayerPanel을 재생성하고 ReadyPanel에 전달
+	public void resetPlayerPanel() {
+	    playerPanel.resetAll();
+	}
+	
+	public GamePanel getGamePanel() {
+		return gamePanel;
 	}
 	
 	public static void main(String[] args) {
