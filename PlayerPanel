@@ -1,0 +1,300 @@
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Image;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import javax.swing.BorderFactory;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
+
+public class PlayerPanel extends Background {
+
+    // 모드 설정: false = 로비, true = 게임
+    private final boolean gameMode;
+    private GameFrame gameFrame;
+    private GameClient client;
+
+    // 로비 컴포넌트
+    private JLabel roomName;
+    private JLabel player1;
+    private JLabel player2;
+    private JButton gameStartBtn;
+
+    // 게임 컴포넌트
+    private JLabel nicknameLabel;
+    private JLabel hpLabel;
+    private JProgressBar hpBar;
+    private JLabel scoreLabel;
+    private JPanel upgradeIconPanel;
+    
+    // 버튼 설정
+    private JButton startBtn = new JButton("게임 시작");
+    private JButton readyBtn = new JButton("게임 준비");
+    private JButton outRoomBtn = new JButton("방 나가기");
+
+    // 기본 생성자 → 로비용
+    public PlayerPanel(GameFrame gameFrame) {
+        this(gameFrame, false);
+    }
+
+    // 모드 선택 생성자
+    public PlayerPanel(GameFrame gameFrame, boolean gameMode) {
+        super("playerBack.png");
+        this.gameFrame = gameFrame;
+        this.gameMode = gameMode;
+        initComponents();
+    }
+    
+    public void setClient(GameClient client) {
+    	this.client = client;
+    }
+    
+    private void initComponents() {
+        setLayout(null);
+
+        // 로비 UI
+        if (!gameMode) {
+
+            // 방 이름 라벨 (기존 코드 복원)
+            roomName = new JLabel("방 이름");
+            roomName.setBounds(20, 20, 240, 20);
+            roomName.setHorizontalAlignment(JLabel.CENTER);
+            roomName.setForeground(Color.WHITE);
+            roomName.setFont(new Font("굴림", Font.BOLD, 16));
+            add(roomName);
+
+            // 플레이어 1
+            player1 = new JLabel("");
+            player1.setBounds(61, 80, 200, 20);
+            player1.setForeground(Color.WHITE);
+            player1.setFont(new Font("굴림", Font.BOLD, 16));
+            add(player1);
+
+            // 플레이어 2
+            player2 = new JLabel("");
+            player2.setBounds(61, 120, 200, 20);
+            player2.setForeground(Color.WHITE);
+            player2.setFont(new Font("굴림", Font.BOLD, 16));
+            add(player2);
+
+        	startBtn.setBounds(35, 440, 100, 20);
+        	add(startBtn);
+        	startBtn.setVisible(false);
+        	startBtn.addActionListener(new ActionListener() {
+        		@Override
+        		public void actionPerformed(ActionEvent e) {
+        			client.sendStartGame();
+        		}
+        	});
+        	
+        	readyBtn.setBounds(35, 440, 100, 20);
+        	add(readyBtn);
+        	readyBtn.setVisible(false);
+        	readyBtn.addActionListener(new ActionListener() {
+        		@Override
+        		public void actionPerformed(ActionEvent e) {
+        			client.sendReady();
+        		}
+        	});
+        	
+        	outRoomBtn.setBounds(145, 440, 100, 20);
+        	add(outRoomBtn);
+        	outRoomBtn.setVisible(false);
+        	outRoomBtn.addActionListener(new ActionListener() {
+        		@Override
+        		public void actionPerformed(ActionEvent e) {
+        			client.outRoom();
+        		}
+        	});
+        } else {
+
+            // 게임 HUD UI
+            nicknameLabel = new JLabel("닉네임 : ");
+            nicknameLabel.setBounds(20, 20, 250, 30);
+            nicknameLabel.setForeground(Color.WHITE);
+            nicknameLabel.setFont(new Font("굴림", Font.BOLD, 16));
+            add(nicknameLabel);
+
+            hpLabel = new JLabel("체력 : 0 / 0");
+            hpLabel.setBounds(20, 55, 200, 25);
+            hpLabel.setForeground(Color.WHITE);
+            hpLabel.setFont(new Font("굴림", Font.PLAIN, 14));
+            add(hpLabel);
+
+            hpBar = new JProgressBar();
+            hpBar.setBounds(20, 85, 200, 20);
+            hpBar.setMinimum(0);
+            hpBar.setMaximum(100);
+            hpBar.setValue(100);
+            hpBar.setStringPainted(true);
+            hpBar.setForeground(Color.RED);
+            add(hpBar);
+
+            upgradeIconPanel = new JPanel();
+            upgradeIconPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 4, 4));
+            upgradeIconPanel.setOpaque(false);
+            upgradeIconPanel.setBounds(20, 115, 200, 60);
+            add(upgradeIconPanel);
+
+            scoreLabel = new JLabel("점수 : 0");
+            scoreLabel.setBounds(20, 185, 200, 30);
+            scoreLabel.setForeground(Color.YELLOW);
+            scoreLabel.setFont(new Font("굴림", Font.BOLD, 16));
+            add(scoreLabel);
+        }
+    }
+    
+    // PlayerPanel 재사용 관련 함수
+    public void resetAll() {
+    	if(!gameMode) {
+    		// 로비 초기화
+    		roomName.setText("방 이름");
+    		player1.setText("");
+    		player2.setText("");
+    		
+    		// 버튼 초기화
+    		startBtn.setVisible(false);
+    		readyBtn.setVisible(false);
+    		outRoomBtn.setVisible(false);
+    	}
+    	else {
+    		// 게임 모드 초기화
+    		setNickname("");
+    		setHp(0, 0);
+    		setScore(0);
+    		
+    		if(upgradeIconPanel != null) {
+    			upgradeIconPanel.removeAll();
+    			upgradeIconPanel.revalidate();
+    			upgradeIconPanel.repaint();
+    		}
+    	}
+    }
+
+
+    // 로비 API
+    public void addPlayer(String userName) {
+        if (!gameMode) {
+            if (player1.getText().equals("")) {
+                player1.setText(userName);
+            } else if (player2.getText().equals("")) {
+                player2.setText(userName);
+            }
+        } else {
+            setNickname(userName);
+        }
+    }
+
+    public void clearPlayers() {
+        if (!gameMode) {
+            if (player1 != null) player1.setText("");
+            if (player2 != null) player2.setText("");
+        } else {
+            setNickname("");
+            setHp(0, 0);
+            setScore(0);
+
+            if (upgradeIconPanel != null) {
+                upgradeIconPanel.removeAll();
+                upgradeIconPanel.revalidate();
+                upgradeIconPanel.repaint();
+            }
+        }
+    }
+
+    public void setRoomName(String rName) {
+        if (!gameMode && roomName != null) {
+            roomName.setText("방 이름 : " + rName);
+        }
+    }
+
+    public JButton getGameStartButton() {
+        return gameStartBtn;
+    }
+
+    // 게임 모드 API
+    public void setNickname(String nickname) {
+        if (nicknameLabel == null) return;
+        nicknameLabel.setText("닉네임 : " + (nickname == null ? "" : nickname));
+    }
+
+    public void setHp(int hp, int maxHp) {
+        if (hpBar == null || hpLabel == null) return;
+
+        if (maxHp <= 0) {
+            hpBar.setMaximum(1);
+            hpBar.setValue(0);
+            hpLabel.setText("체력 : 0 / 0");
+            return;
+        }
+
+        hp = Math.max(0, Math.min(hp, maxHp));
+
+        hpBar.setMaximum(maxHp);
+        hpBar.setValue(hp);
+        hpLabel.setText("체력 : " + hp + " / " + maxHp);
+    }
+
+    public void setScore(int score) {
+        if (scoreLabel != null) {
+            scoreLabel.setText("점수 : " + score);
+        }
+    }
+
+    public void addUpgradeIcon(ImageIcon icon) {
+        if (!gameMode) return;
+        if (icon == null || upgradeIconPanel == null) return;
+
+        Image scaled = icon.getImage().getScaledInstance(24, 24, Image.SCALE_SMOOTH);
+        JLabel iconLabel = new JLabel(new ImageIcon(scaled));
+        iconLabel.setBorder(BorderFactory.createLineBorder(Color.WHITE, 1));
+
+        upgradeIconPanel.add(iconLabel);
+        upgradeIconPanel.revalidate();
+        upgradeIconPanel.repaint();
+    }
+    
+    // GameCilent에서 넘어온 사람이 방장인지 아닌지를 구분하여 보이는 버튼을 다르게 함
+    public void showStartBtn() {
+    	startBtn.setVisible(true);
+    	outRoomBtn.setVisible(true);
+    }
+    
+    public void showReadyBtn() {
+    	readyBtn.setVisible(true);
+    	outRoomBtn.setVisible(true);
+    }
+    
+    public void setReadyStatus(String name, boolean ready) {
+    	if(player1.getText().equals(name)) {
+    		if(ready) {
+    			player1.setText(name + " (준비)");
+    		}
+    		else {
+    			player1.setText(name);
+    		}
+    	}
+    	else if(player2.getText().equals(name)) {
+    		if(ready) {
+    			player2.setText(name + " (준비)");
+    		}
+    		else {
+    			player2.setText(name);
+    		}
+    	}
+    }
+    
+    public void removePlayer(String name) {
+    	if(player1.getText().equals(name)) {
+    		player1.setText("");
+    	}
+    	else if(player2.getText().equals(name)) {
+    		player2.setText("");
+    	}
+    }
+}
