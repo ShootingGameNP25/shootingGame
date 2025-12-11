@@ -1,0 +1,176 @@
+// ===== UpgradePanel.java =====
+
+import javax.swing.*;
+import javax.swing.border.LineBorder;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+
+public class UpgradePanel extends JPanel {
+	
+	public ImageIcon getIconBullet() { return iconBulletCount; }
+	public ImageIcon getIconSpeed() { return iconFireSpeed; }
+	public ImageIcon getIconDamage() { return iconDamage; }
+
+    public interface UpgradeListener {
+        void onBulletCountUp();
+        void onFireSpeedUp();
+        void onDamageUp();
+    }
+
+    private boolean selected = false;
+    private final UpgradeListener listener;
+
+    private ImageIcon iconBulletCount;
+    private ImageIcon iconFireSpeed;
+    private ImageIcon iconDamage;
+
+    private JLabel lblCount;
+    private JLabel lblSpeed;
+    private JLabel lblDamage;
+
+    public UpgradePanel(UpgradeListener listener) {
+        this.listener = listener;
+
+        setLayout(null);
+        setBackground(new Color(0, 0, 0, 150));
+        setVisible(false);
+
+        loadImages();   // ★ 이미지 로드 + 축소 처리
+        createUI();
+    }
+
+    // -----------------------------
+    // 이미지 로딩 + 리사이즈
+    // -----------------------------
+    private void loadImages() {
+        iconBulletCount = resizeImage("addbullet.png", 150, 150);
+        iconFireSpeed   = resizeImage("addspeed.png", 150, 150);
+        iconDamage      = resizeImage("adddamage.png", 150, 150);
+    }
+
+    private ImageIcon resizeImage(String path, int w, int h) {
+        ImageIcon origin = new ImageIcon(path);
+
+        Image scaled = origin.getImage().getScaledInstance(
+                w, h,
+                Image.SCALE_SMOOTH
+        );
+
+        return new ImageIcon(scaled);
+    }
+
+    // -----------------------------
+    // 옵션 1개 UI 구성
+    // -----------------------------
+    private JLabel createOption(ImageIcon icon, String text, Runnable action) {
+        JLabel wrap = new JLabel();
+        wrap.setLayout(new BorderLayout());
+        wrap.setHorizontalAlignment(SwingConstants.CENTER);
+
+        JLabel imgLabel = new JLabel(icon);
+        imgLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        JLabel txtLabel = new JLabel(text, SwingConstants.CENTER);
+        txtLabel.setForeground(Color.WHITE);
+        txtLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
+
+        wrap.add(imgLabel, BorderLayout.CENTER);
+        wrap.add(txtLabel, BorderLayout.SOUTH);
+
+        wrap.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        // hover용 밝은 이미지
+        Image hoverImg = createBrightImage(icon.getImage(), 0.35f);
+
+        wrap.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (!selected) imgLabel.setIcon(new ImageIcon(hoverImg));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (!selected) imgLabel.setIcon(icon);
+            }
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (selected) return;
+
+                selected = true;
+
+                removeAllBorders();
+                wrap.setBorder(new LineBorder(Color.YELLOW, 4, true));
+
+                imgLabel.setIcon(icon);
+
+                if (listener != null) action.run();
+            }
+        });
+
+        return wrap;
+    }
+
+    // 선택 효과 해제
+    private void removeAllBorders() {
+        if (lblCount != null) lblCount.setBorder(null);
+        if (lblSpeed != null) lblSpeed.setBorder(null);
+        if (lblDamage != null) lblDamage.setBorder(null);
+    }
+
+    // 밝은 hover 이미지 생성
+    private Image createBrightImage(Image src, float alphaWhite) {
+        int w = src.getWidth(null);
+        int h = src.getHeight(null);
+        if (w <= 0 || h <= 0) return src;
+
+        BufferedImage buff = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = buff.createGraphics();
+
+        g2.drawImage(src, 0, 0, null);
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alphaWhite));
+        g2.setColor(Color.WHITE);
+        g2.fillRect(0, 0, w, h);
+
+        g2.dispose();
+        return buff;
+    }
+
+    // -----------------------------
+    // 전체 UI 구성
+    // -----------------------------
+    private void createUI() {
+        lblCount = createOption(iconBulletCount, "총알 +1 개", () -> listener.onBulletCountUp());
+        lblSpeed = createOption(iconFireSpeed, "발사 속도 증가", () -> listener.onFireSpeedUp());
+        lblDamage = createOption(iconDamage, "총알 데미지 +1", () -> listener.onDamageUp());
+
+        int w = 200;
+        int h = 250;
+
+        lblCount.setBounds(50, 100, w, h);
+        lblSpeed.setBounds(300, 100, w, h);
+        lblDamage.setBounds(550, 100, w, h);
+
+        add(lblCount);
+        add(lblSpeed);
+        add(lblDamage);
+    }
+
+    // 다음 업그레이드 때 초기 상태 복원
+    public void resetState() {
+        selected = false;
+
+        ((JLabel) lblCount.getComponent(0)).setIcon(iconBulletCount);
+        ((JLabel) lblSpeed.getComponent(0)).setIcon(iconFireSpeed);
+        ((JLabel) lblDamage.getComponent(0)).setIcon(iconDamage);
+
+        removeAllBorders();
+    }
+
+    public boolean isSelected() {
+        return selected;
+    }
+}
