@@ -64,7 +64,7 @@ public class ReadyPanel extends JPanel{
         leftPanel.add(roomPanel);
         
         // JTabel 준비
-        String header[] = { "방 이름", "방 설명" };
+        String header[] = { "방 이름", "방 설명", "인원" };
         
         // JTable 모델 생성 및 테이블 생성
         roomTable = new DefaultTableModel(header, 0);
@@ -108,7 +108,9 @@ public class ReadyPanel extends JPanel{
         			return;
         		}
         		
-        		delLog = new DelDialog(gameFrame, ReadyPanel.this.client, "방 삭제");
+        		String roomName = roomTable.getValueAt(row, 0).toString();
+        		
+        		delLog = new DelDialog(gameFrame, ReadyPanel.this.client, roomName, "방 삭제");
         		client.setDelRoomDialog(delLog);
         		delLog.setVisible(true);
         	}
@@ -140,7 +142,7 @@ public class ReadyPanel extends JPanel{
         			JOptionPane.showMessageDialog(null, "방을 선택하세요!");
         			return;
         		}
-        		
+        		        		
         		String roomName = roomTable.getValueAt(row, 0).toString();
         		
         		// 입장 전 기존 플레이어 목록 초기화
@@ -194,8 +196,8 @@ public class ReadyPanel extends JPanel{
         client.setGameFrame(gameFrame);
     }
     
-    public void updateRoomList(String roomName, String explain) {
-    	roomTable.addRow(new Object[] { roomName, explain });
+    public void updateRoomList(String roomName, String explain, String count) {
+    	roomTable.addRow(new Object[] { roomName, explain, count });
     }
     
     // 방 목록 초기화
@@ -257,9 +259,12 @@ public class ReadyPanel extends JPanel{
     	
     	private GameClient client;
     	
-    	public DelDialog(JFrame frame, GameClient client, String title) {
+    	private String roomName;
+    	
+    	public DelDialog(JFrame frame, GameClient client, String roomName, String title) {
     		super(frame, title, true);
     		this.client = client;
+    		this.roomName = roomName;
     		setLayout(new GridLayout(2, 2, 10, 10));
     		
     		Container content = getContentPane();
@@ -270,12 +275,21 @@ public class ReadyPanel extends JPanel{
     		add(pwLabel); add(pw);
     		
     		add(okBtn); add(noBtn);
-    		setSize(400, 250);
+    		setSize(400, 180);
+    		setResizable(false);
     		
     		okBtn.addActionListener(new ActionListener() {
     			@Override
     			public void actionPerformed(ActionEvent e) {
+    				String password = new String(pw.getPassword()).trim();
     				
+    				if(password.isEmpty()) {
+    					JOptionPane.showMessageDialog(DelDialog.this, "비밀번호를 입력하세요");
+    					return;
+    				}
+    				
+    				client.deleteRoom(roomName, password);
+    				dispose();
     			}
     		});
     		
@@ -331,7 +345,8 @@ public class ReadyPanel extends JPanel{
     		add(pwLabel); add(password);
     		
     		add(okBtn); add(noBtn);
-    		setSize(400, 250);
+    		setSize(300, 250);
+    		setResizable(false);
     		
     		// 버튼 설정
     		okBtn.addActionListener(new ActionListener() {
