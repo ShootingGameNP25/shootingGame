@@ -21,20 +21,20 @@ public class GameClient extends Thread {
     // 현재 본인이 속한 방. 없으면 null값
     private String currentRoom = null;
     
+    // 준비 완료 토글
+    private boolean isReady = false;
+    
     // 방 생성 dialog 정보를 얻기 위한 변수
     private JDialog dialog;
     
     // 방 삭제 delLog 정보를 얻기 위한 변수
     private JDialog delLog;
     
-    // 준비 완료 토글
-    private boolean isReady = false;
-    
     // IP와 Port는 GameFrame에서 고정된 값을 받아옴
     private String IPAddress;
     private String PortNumber;
     
-    private JLabel lMessage; // GameFrame의 메시지 라벨을 업데이트
+    private JLabel lMessage;
     private GamePanel gamePanel;
     private ChatPanel chatPanel;
     private ReadyPanel readyPanel;
@@ -75,10 +75,11 @@ public class GameClient extends Thread {
             dis = new DataInputStream(socket.getInputStream());
             
             // 최초 로그인 (기존 방식 유지)
-            dos.writeUTF("/login " + UserName);
+            dos.writeUTF("/login|" + UserName);
             
             this.start(); // 수신 스레드 시작
-        } catch (Exception e) {
+        } 
+        catch (Exception e) {
             e.printStackTrace();
             lMessage.setText("연결 실패");
         }
@@ -103,7 +104,9 @@ public class GameClient extends Thread {
     	try {
     		dos.writeUTF("/roomchat|" + currentRoom + "|" + msg);
     	}
-    	catch(IOException e) { }
+    	catch(IOException e) { 
+    		
+    	}
     }
     
     public void sendChat(String msg) {
@@ -116,7 +119,8 @@ public class GameClient extends Thread {
                 // 방 채팅
                 dos.writeUTF("/roomchat|" + currentRoom + "|" + msg);
             }
-        } catch (IOException e) { }
+        } 
+        catch (IOException e) { }
     }
     
     public void sendMove(int x, int y) {
@@ -188,6 +192,20 @@ public class GameClient extends Thread {
     	catch(IOException e) { }
     }
     
+    public void deleteRoom(String roomName, String password) {
+    	try {
+    		dos.writeUTF("/deleteRoom|" + roomName + "|" + password);
+    	}
+    	catch(IOException e) { }
+    }
+    
+    public void sendEmote(String emoteName) {
+    	try {
+    		dos.writeUTF("/emote|" + currentRoom + "|" + UserName + "|" + emoteName);
+    	}
+    	catch(IOException e) { }
+    }
+    
     @Override
     public void run() {
         while (true) {
@@ -231,7 +249,12 @@ public class GameClient extends Thread {
                     		}
                     		
                     		if(chatPanel != null) { // 진짜로 출력
-                    			chatPanel.appendChat("[" + sender + "]" + " "+ message);
+                    			if("SERVER".equals(sender)) { // 서버에서 보낸거라면 -> 입장, 퇴장 등
+                    				chatPanel.appendSystemChat(message);
+                    			}
+                    			else {
+                    				chatPanel.appendChat(sender, message);
+                    			}
                     		}
                         }
                         break;
@@ -265,15 +288,19 @@ public class GameClient extends Thread {
                     
                     case "/roomList": // ReadyPanel의 DefaultTableModel로 넘겨야 됨
                     	// 방1,설명1,123;방2,설명2,456;
-                    	String []roomTotal = args[1].split(";"); // 방1,설명1,123
-                    	
-                    	for(int i = 0; i < roomTotal.length; i++) {
-                    		String []oneRoom = roomTotal[i].split(",");
+                    	if(args.length >= 2) {
+                    		readyPanel.clearRoomList();
                     		
-                    		String roomName = oneRoom[0];
-                    		String explain = oneRoom[1];
-                    		String pw = oneRoom[2];
-                    		readyPanel.updateRoomList(roomName, explain);
+                    		String []roomTotal = args[1].split(";"); // 방1,설명1,123,1/2
+                        	
+                        	for(int i = 0; i < roomTotal.length; i++) {
+                        		String []oneRoom = roomTotal[i].split(",");
+                        		
+                        		String roomName = oneRoom[0];
+                        		String explain = oneRoom[1];
+                        		String count = oneRoom[2];
+                        		readyPanel.updateRoomList(roomName, explain, count);
+                        	}
                     	}
                     	break;
                     	
@@ -324,7 +351,15 @@ public class GameClient extends Thread {
                     	
                     case "/gameStart":
                         gameFrame.show(GameFrame.GAME);
-                        gameFrame.getGamePanel().startGame();
+                        
+                        GamePanel gamePanel = gameFrame.getGamePanel();
+                        
+                        // 게임 시작 시 붙인 ChatPanel과의 연결
+                        ChatPanel gameChat = gamePanel.getChatPanel();
+                        gameChat.setGameClient(this);
+                        this.setChatPanel(gameChat);
+                        
+                        gamePanel.startGame();
                         break;
                         
                     case "/outRoomMe":
@@ -357,6 +392,33 @@ public class GameClient extends Thread {
                     		
                     		playerPanel.removePlayer(oUser);
                     	}
+                    	break;
+
+                    case "/deleteRoomSuccess": // 방 삭제 성공
+                    	currentRoom = null;
+                    	
+                    	// 플레이어 UI 초기화
+                    	readyPanel.clearPlayers();
+                    	readyPanel.resetPlayerPanel();
+                    	
+                    	// 방 목록 초기화 후 서버 기준으로 다시 받기
+                    	readyPanel.clearRoomList();
+                    	giveMeRoomList();
+                    	
+                    	JOptionPane.showMessageDialog(null, "방이 삭제되었습니다");
+                    	break;
+                    	
+                    case "/deleteRoomFail": // 방 삭제 실패
+                    	JOptionPane.showMessageDialog(null, args[1]);
+                    	break;
+                    	
+                    case "/emote":
+                    	if(args.length >= 3) {
+                    		String sender = args[1];
+                    		String emoteName = args[2];
+                    		chatPanel.appendEmote(sender, emoteName);
+                    	}
+                    	break;
                 }
             } 
             catch (IOException e) {
