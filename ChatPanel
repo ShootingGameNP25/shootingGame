@@ -1,8 +1,16 @@
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.GridLayout;
+import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -12,6 +20,12 @@ public class ChatPanel extends Background{
 	private JTextArea textArea;
 	private GameClient client;
 	
+	// 채팅을 담을 컨테이너
+	private JPanel chatContainer;
+	private JButton imgBtn;
+	
+	private JScrollPane scrollPane;
+	
 	public ChatPanel() {
 		super("chatBack.png");
 		
@@ -19,25 +33,33 @@ public class ChatPanel extends Background{
 		
 		setPreferredSize(new Dimension(280, 450));
 		
-		JScrollPane scrollPane = new JScrollPane();
+		chatContainer = new JPanel();
+		chatContainer.setLayout(new BoxLayout(chatContainer, BoxLayout.Y_AXIS));
+		chatContainer.setOpaque(false); 
+		
+		scrollPane = new JScrollPane();
 		scrollPane.setBounds(20, 32, 239, 338);
 		scrollPane.setOpaque(false); //스크롤 패널 자체 투명화
 		scrollPane.getViewport().setOpaque(false); // 투명화
 		scrollPane.setBorder(null); // 테두리 없애기
+		scrollPane.setViewportView(chatContainer);
 		add(scrollPane);
-		
-		textArea = new JTextArea();
-		textArea.setEditable(false);
-		textArea.setOpaque(false);
-		textArea.setLineWrap(true); // 자동 줄바꿈
-		textArea.setForeground(Color.WHITE);
-		scrollPane.setViewportView(textArea);
 		
 		Myaction action = new Myaction();
 		txtInput = new JTextField();
-		txtInput.setBounds(20, 404, 238, 33);
+		txtInput.setBounds(20, 404, 180, 33);
 		add(txtInput);
 		txtInput.addActionListener(action);
+		
+		imgBtn = new JButton("+");
+		imgBtn.setBounds(205, 404, 54, 33);
+		imgBtn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				openEmoteDialog();
+			}
+		});
+		add(imgBtn);
 		
 	}
 	
@@ -45,17 +67,108 @@ public class ChatPanel extends Background{
 		this.client = client;
 	}
 	
-	public void appendChat(String msg) {
-		textArea.append(msg + "\n");
+	public void appendChat(String sender, String msg) {
+		JPanel row = new JPanel();
+		row.setOpaque(false);
+		row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
 		
-		// textArea 객체의 텍스트의 총 길이를 저장
-		int pos = textArea.getText().length();
+		row.setAlignmentX(LEFT_ALIGNMENT);
 		
-		// caret 포지션을 가장 마지막으로 맞춤
-		textArea.setCaretPosition(pos);
+		JLabel name = new JLabel("[" + sender + "]");
+		name.setForeground(Color.WHITE);
 		
-		// 입력창으로 포커스 줌
-		txtInput.requestFocus();
+		JLabel text = new JLabel(msg);
+		text.setForeground(Color.WHITE);
+		
+		row.add(name);
+		row.add(text);
+		
+		chatContainer.add(row);
+		refreshScroll();
+	}
+	
+	public void appendSystemChat(String msg) {
+	    JPanel row = new JPanel();
+	    row.setOpaque(false);
+	    row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+	    
+	    row.setAlignmentX(LEFT_ALIGNMENT);
+
+	    JLabel label = new JLabel("[SERVER]" + msg);
+	    label.setForeground(Color.WHITE);
+
+	    row.add(label);
+	    chatContainer.add(row);
+	    refreshScroll();
+	}
+	
+	public void appendEmote(String sender, String emoteName) {
+		JPanel row = new JPanel();
+		row.setOpaque(false);
+		row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+		
+		row.setAlignmentX(LEFT_ALIGNMENT);
+		
+		JLabel name = new JLabel("[" + sender + "]");
+		name.setForeground(Color.WHITE);
+		
+		// 기존 이미지 로드
+		ImageIcon imageCon = new ImageIcon(ChatPanel.class.getResource("/emoticons/" + emoteName));
+		
+		// 채팅용으로 축소
+		Image img = imageCon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
+		
+		JLabel imgLabel = new JLabel(new ImageIcon(img));
+		
+		row.add(name);
+		row.add(imgLabel);
+		
+		chatContainer.add(row);
+		refreshScroll();
+	}
+	
+	public void refreshScroll() {
+		chatContainer.revalidate();
+		chatContainer.repaint();
+		
+		scrollPane.getVerticalScrollBar().setValue(scrollPane.getVerticalScrollBar().getMaximum());
+	}
+	
+	private void openEmoteDialog() {
+		JDialog dialog = new JDialog();
+		dialog.setTitle("이모티콘을 선택하세요");
+		dialog.setModal(true);
+		dialog.setLayout(new GridLayout(3, 4, 5, 5));
+		
+		String[] emotes = {
+				"happy.png",
+				"sad.png",
+				"shouting.png",
+				"goodjob.png"
+		};
+		
+		for(int i = 0; i < emotes.length; i++) {
+			String emote = emotes[i];
+			
+			ImageIcon imageCon = new ImageIcon(ChatPanel.class.getResource("/emoticons/" + emote));
+			Image img = imageCon.getImage().getScaledInstance(48, 48, Image.SCALE_SMOOTH);
+			JButton btn = new JButton(new ImageIcon(img));
+			
+			btn.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					if(client != null) {
+						client.sendEmote(emote);
+					}
+					dialog.dispose();
+				}
+			});
+			dialog.add(btn);
+		}
+		dialog.setSize(300, 250);
+		dialog.setLocationRelativeTo(this);
+		dialog.setVisible(true);
+		dialog.setResizable(false);
 	}
 	
 	class Myaction implements ActionListener{
