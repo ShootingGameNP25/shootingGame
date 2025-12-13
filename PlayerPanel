@@ -21,8 +21,8 @@ public class PlayerPanel extends Background {
 
     // 로비 컴포넌트
     private JLabel roomName;
-    private JLabel player1;
-    private JLabel player2;
+    private JLabel player1; // 화면에 그려지는 UI 컴포넌트
+    private JLabel player2; // 화면에 그려지는 UI 컴포넌트
     private JButton gameStartBtn;
 
     // 게임 컴포넌트
@@ -36,6 +36,11 @@ public class PlayerPanel extends Background {
     private JButton startBtn = new JButton("게임 시작");
     private JButton readyBtn = new JButton("게임 준비");
     private JButton outRoomBtn = new JButton("방 나가기");
+    
+    
+    // 이름을 저장
+    private String playerOneName = null;
+    private String playerTwoName = null;
 
     // 기본 생성자 → 로비용
     public PlayerPanel(GameFrame gameFrame) {
@@ -157,6 +162,9 @@ public class PlayerPanel extends Background {
     		player1.setText("");
     		player2.setText("");
     		
+    		playerOneName = null;
+    		playerTwoName = null;
+    		
     		// 버튼 초기화
     		startBtn.setVisible(false);
     		readyBtn.setVisible(false);
@@ -180,9 +188,11 @@ public class PlayerPanel extends Background {
     // 로비 API
     public void addPlayer(String userName) {
         if (!gameMode) {
-            if (player1.getText().equals("")) {
+            if (playerOneName == null) {
+            	playerOneName = userName;
                 player1.setText(userName);
-            } else if (player2.getText().equals("")) {
+            } else if (playerTwoName == null) {
+            	playerTwoName = userName;
                 player2.setText(userName);
             }
         } else {
@@ -194,6 +204,9 @@ public class PlayerPanel extends Background {
         if (!gameMode) {
             if (player1 != null) player1.setText("");
             if (player2 != null) player2.setText("");
+            
+            playerOneName = null;
+            playerTwoName = null;
         } else {
             setNickname("");
             setHp(0, 0);
@@ -271,29 +284,25 @@ public class PlayerPanel extends Background {
     }
     
     public void setReadyStatus(String name, boolean ready) {
-    	if(player1.getText().equals(name)) {
-    		if(ready) {
-    			player1.setText(name + " (준비)");
-    		}
-    		else {
-    			player1.setText(name);
-    		}
+    	if(name == null) return;
+    	
+    	if(name.equals(playerOneName)) {
+    		player1.setText(ready ? playerOneName + " (준비)" : playerOneName);
     	}
-    	else if(player2.getText().equals(name)) {
-    		if(ready) {
-    			player2.setText(name + " (준비)");
-    		}
-    		else {
-    			player2.setText(name);
-    		}
+    	else if(name.equals(playerTwoName)) {
+    		player2.setText(ready ? playerTwoName + " (준비)" : playerTwoName);
     	}
     }
     
     public void removePlayer(String name) {
-    	if(player1.getText().equals(name)) {
+    	if(name == null) return;
+    	
+    	if(name.equals(playerOneName)) {
+    		playerOneName = null;
     		player1.setText("");
     	}
-    	else if(player2.getText().equals(name)) {
+    	else if(name.equals(playerTwoName)) {
+    		playerTwoName = null;
     		player2.setText("");
     	}
     }
