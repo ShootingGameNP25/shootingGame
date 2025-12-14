@@ -1,12 +1,26 @@
 // 475번쨰 줄 50으로 수정
-import java.awt.*;
-import javax.swing.*;
-import javax.swing.AbstractAction;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+
+import javax.swing.AbstractAction;
+import javax.swing.ActionMap;
+import javax.swing.ImageIcon;
+import javax.swing.InputMap;
+import javax.swing.JPanel;
+import javax.swing.JSplitPane;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
 public class GamePanel extends JPanel {
 
@@ -22,7 +36,7 @@ public class GamePanel extends JPanel {
 
         gameArea = new GameArea();
         rightTop = new PlayerPanel(gameFrame, true);
-        rightBottom = new ChatPanel(); // = new ChatPanel()
+        rightBottom = new ChatPanel();
 
         JSplitPane verticalSplit = new JSplitPane(
                 JSplitPane.VERTICAL_SPLIT,
@@ -53,6 +67,10 @@ public class GamePanel extends JPanel {
 
     public void setPlayerNickname(String nickname) {
         if (rightTop != null) rightTop.setNickname(nickname);
+    }
+    
+    public ChatPanel getChatPanel() {
+    	return rightBottom;
     }
 
     // =====================================================================
@@ -134,6 +152,7 @@ public class GamePanel extends JPanel {
         public GameArea() {
             setOpaque(true);
             setFocusable(true);
+            setRequestFocusEnabled(true);
 
             // Load images
             bgImg = new ImageIcon("backingame.png").getImage();
@@ -148,6 +167,14 @@ public class GamePanel extends JPanel {
 
             // Player
             player = new Player(gameLevel);
+            
+            // 클릭하면 게임 영역이 포커스를 가져감
+            addMouseListener(new MouseAdapter() {
+            	@Override
+            	public void mousePressed(MouseEvent e) {
+            		requestFocusInWindow();
+            	}
+            });
 
             // Resize event
             addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -248,7 +275,7 @@ public class GamePanel extends JPanel {
 
         // ========================= 키 바인딩 =========================
         private void setupKeyBindings() {
-            InputMap im = getInputMap(WHEN_IN_FOCUSED_WINDOW);
+            InputMap im = getInputMap(WHEN_FOCUSED); // WHEN_IN_FOCUSED_WINDOW
             ActionMap am = getActionMap();
 
             // LEFT
