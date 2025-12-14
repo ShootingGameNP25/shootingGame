@@ -13,9 +13,13 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 public class ScoreStartPanel extends JPanel{
+	// 제목 라벨
 	private JLabel titleLabel = new JLabel("<순위>");
+	
+	// 팀명과 점수를 저장하는 맵
 	private HashMap<String, Integer> tenHightMap = new HashMap<>();
 	
+	// 헤더 영역 라벨들
 	private JLabel rankE = new JLabel("등수");
 	private JLabel nameE = new JLabel("이름1");
 	private JLabel nameE2 = new JLabel("이름2");
@@ -43,12 +47,14 @@ public class ScoreStartPanel extends JPanel{
 		showScore();
 	}
 	
+	// 헤더 라벨 공통 설정
 	private void addHeadLabel(JLabel label, JPanel panel) {
 		label.setHorizontalAlignment(JLabel.CENTER);
 		label.setForeground(Color.white);
         panel.add(label);
 	}
 	
+	// 파일을 읽어 점수를 정렬하고 화면에 출력
 	private void showScore() {
 		try {
 			BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("score.txt"), StandardCharsets.UTF_8));
@@ -67,6 +73,7 @@ public class ScoreStartPanel extends JPanel{
 				tenHightMap.put(team, score);
 			}
 			
+			// 점수 내림차순
 			ArrayList<Map.Entry<String, Integer>> scoreList = new ArrayList<>(tenHightMap.entrySet());
 			scoreList.sort((score1, score2) -> score2.getValue() - score1.getValue());
 			
@@ -87,6 +94,7 @@ public class ScoreStartPanel extends JPanel{
 		}
 	}
 	
+	// 값 붙임
     private void addRow(int rank, Map.Entry<String, Integer> entry) {
 
         // 팀 이름 분리
@@ -112,6 +120,7 @@ public class ScoreStartPanel extends JPanel{
         this.add(row);
     }
 
+    // 데이터 출력용 라벨 공통 설정
     private JLabel makeDataLabel(String text) {
         JLabel label = new JLabel(text);
         label.setForeground(Color.white);
