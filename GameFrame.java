@@ -138,6 +138,16 @@ public class GameFrame extends JFrame{
 		start.repaint();
 	}
 	
+	public void showFromGameOver(String id) {
+	    historyStack.clear();   // ✅ 이전 흐름 전부 제거
+	    card.show(start, id);
+	    current = id;
+
+	    start.revalidate();
+	    start.repaint();
+	}
+
+	
 	private void initGame() {
 		// 게임 시작시 ReadyPanel 표시
 		show(READY);
@@ -180,6 +190,10 @@ public class GameFrame extends JFrame{
 	public GamePanel getGamePanel() {
 		return gamePanel;
 	}
+	public ScorePanel getScorePanel() {
+		return score;
+	}
+
 	
 	public ChatPanel getSharedChatPanel() {
 		return chatPanel;
