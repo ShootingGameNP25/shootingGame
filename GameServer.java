@@ -27,16 +27,14 @@ import javax.swing.border.EmptyBorder;
 
 public class GameServer extends JFrame {
     private static final long serialVersionUID = 1L;
-    
-    // UI
     private JPanel contentPane;
     JTextArea textArea;
     private JTextField txtPortNumber;
 
-    // Server, Client
     private ServerSocket socket; // 서버소켓
     private Socket client_socket; // accept() 에서 생성된 client 소켓
     private Vector<UserService> UserVec = new Vector<>(); // 연결된 사용자를 저장할 벡터
+    private static final int BUF_LEN = 128;
     
     // 생성된 방 목록을 저장하기 위한 가변배열
     private ArrayList<RoomInfo> roomList = new ArrayList<>();
@@ -94,7 +92,6 @@ public class GameServer extends JFrame {
                 btnServerStart.setText("Game Server Running..");
                 btnServerStart.setEnabled(false); // 서버를 더이상 실행시키지 못 하게 막는다
                 txtPortNumber.setEnabled(false); // 더이상 포트번호 수정 못 하게 막는다
-                
                 AcceptServer accept_server = new AcceptServer();  // 멀티 스레드 객체 생성
                 accept_server.start();
             }
@@ -103,17 +100,11 @@ public class GameServer extends JFrame {
         contentPane.add(btnServerStart);
     }
 
-    //JtextArea에 문자열을 출력해 주는 기능을 수행하는 맴버 함수
-    public void AppendText(String str) {
-        textArea.append(str + "\n");   //전달된 문자열 str을 textArea에 추가
-        textArea.setCaretPosition(textArea.getText().length());  // textArea의 커서(캐럿) 위치를 텍스트 영역의 마지막으로 이동
-    }
     
     // 새로운 참가자 accept() 하고 user thread를 새로 생성
     class AcceptServer extends Thread {
         public void run() {
-        	// 사용자 접속을 계속해서 받기
-            while (true) { 
+            while (true) { // 사용자 접속을 계속해서 받기
                 try {
                     AppendText("Waiting clients ...");
                     client_socket = socket.accept(); // accept가 일어나기 전까지는 무한 대기중
@@ -122,15 +113,19 @@ public class GameServer extends JFrame {
                     // User 당 하나씩 Thread 생성
                     UserService new_user = new UserService(client_socket);
                     UserVec.add(new_user); // 새로운 참가자 배열에 추가
-                    
                     AppendText("사용자 입장. 현재 참가자 수 " + UserVec.size());
                     new_user.start(); // 만든 객체의 스레드 실행
-                } 
-                catch (IOException e) {
+                } catch (IOException e) {
                     AppendText("!!!! accept 에러 발생... !!!!");
                 }
             }
         }
+    }
+    
+    //JtextArea에 문자열을 출력해 주는 기능을 수행하는 맴버 함수
+    public void AppendText(String str) {
+        textArea.append(str + "\n");   //전달된 문자열 str을 textArea에 추가
+        textArea.setCaretPosition(textArea.getText().length());  // textArea의 커서(캐럿) 위치를 텍스트 영역의 마지막으로 이동
     }
 
     class UserService extends Thread {
@@ -149,34 +144,21 @@ public class GameServer extends JFrame {
         public UserService(Socket client_socket) {
             this.client_socket = client_socket;
             this.user_vc = UserVec;
-            
             try {
                 is = client_socket.getInputStream();
                 dis = new DataInputStream(is);
                 os = client_socket.getOutputStream();
                 dos = new DataOutputStream(os);
                 
-                String line1 = dis.readUTF();    
-                if(line1 == null) {
-                	return;
-                }
+                String line1 = dis.readUTF();      
                 String[] msg = line1.split(" ");  
                 
-                if(msg.length < 2) {
-                	AppendText("잘못된 로그인 형식 : " + line1);
-                	return;
-                }
-
                 UserName = msg[1].trim();
-                if(UserName.isEmpty()) {
-                	AppendText("빈 사용자 이름 로그인");
-                	return;
-                }
                 
                 AppendText("새로운 참가자 " + UserName + " 입장.");
+                
                 sendGlobalChat(UserName + "님이 입장했습니다.");
-            } 
-            catch (IOException e) {
+            } catch (Exception e) {
                 AppendText("userService error");
             }
         }
@@ -185,14 +167,11 @@ public class GameServer extends JFrame {
         public void sendGlobalChat(String msg) {
         	for(int i = 0; i < user_vc.size(); i++) {
         		UserService user = user_vc.get(i);
-        		
         		if(user.currentRoom == null) {
         			try {
             			user.dos.writeUTF("/chat|SERVER|" + msg);
             		}
-            		catch(IOException e) { 
-            			AppendText("writeUTF 실패(" + user.UserName + "): " + e.getMessage());
-            		}
+            		catch(IOException e) { }
         		}
         	}
         }
@@ -201,22 +180,17 @@ public class GameServer extends JFrame {
         public void sendRoomChat(String room, String msg) {
         	for(int i = 0; i < user_vc.size(); i++) {
         		UserService user = user_vc.get(i);
-        		
         		if(room.equals(user.currentRoom)) {
         			try {
         				user.dos.writeUTF("/chat|" + UserName + "|" + msg);
         			}
-        			catch(IOException e) {
-        				AppendText("writeUTF 실패(" + user.UserName + "): " + e.getMessage());
-        			}
+        			catch(IOException e) { }
         		}
         	}
         }
         
         // 방 전체에 최신 멤버 리스트 보내는 함수
         public void sendJoinedRoomList(RoomInfo room) {
-        	if(room == null) return;
-        	
         	StringBuilder sb = new StringBuilder();
         	sb.append("/joinedRoomList|").append(room.roomName).append("|");
         	
@@ -237,14 +211,11 @@ public class GameServer extends JFrame {
         			try {
         				user.dos.writeUTF(msg);
         			}
-        			catch(IOException e) {
-        				AppendText("writeUTF 실패" + e.getMessage());
-        			}
+        			catch(IOException e) { }
         		}
         	}
         }
         
-        // 게임 종료
         public void logout() {
         	UserVec.removeElement(this);
         	sendGlobalChat("[알림]|" + UserName + "님이 퇴장하였습니다.");
@@ -277,7 +248,7 @@ public class GameServer extends JFrame {
                     		
                     		break;
                     		
-                    	case "/chat": // 채팅 관련
+                    	case "/chat": // GameClient의 run() 메소드에서 /chat 메시지내용 이 넘어옴
                     		if(args.length >= 2) {
                     			if(currentRoom == null) {
                     				StringBuilder sb = new StringBuilder();
@@ -300,7 +271,7 @@ public class GameServer extends JFrame {
                     		}
                     		break;
                     		
-                    	case "/roomchat": // 방 채팅 관련
+                    	case "/roomchat":
                     		if(args.length >= 3) {
                     			String roomName = args[1];
                     			
@@ -371,10 +342,12 @@ public class GameServer extends JFrame {
                     			dos.writeUTF("방이 없습니다.");
                     		}
                     		else {
+                    			// String을 사용하면 for문 안에서 계속 덮어지기 때문에 StringBuilder 사용
                     			StringBuilder sb = new StringBuilder();
                     			sb.append("/roomList|");
                     			
                     			for(int i = 0; i < roomList.size(); i++) {
+                    				// 여기서 String을 선언하면 값이 이상해짐
                         			RoomInfo room = roomList.get(i);
                         			
                         			sb.append(room.roomName).append(",")
@@ -391,41 +364,39 @@ public class GameServer extends JFrame {
                     		break;
                     		
                     	case "/joinRoom": // 다른 사람이 방에 참가
-                    		if(args.length >= 2) {
-                        		String roomName = args[1];
-                        		
-                        		// roomList에서 찾기 위함
-                        		RoomInfo targetRoom = null;
-                        		
-                        		for(int i = 0; i < roomList.size(); i++) {
-                        			RoomInfo room = roomList.get(i);
-                        			
-                        			if(room.roomName.equals(roomName)) {
-                        				targetRoom = room;
-                        				break;
-                        			}
-                        		}
-                        		
-                        		// 해당 방이 있을 경우
-                        		if(targetRoom != null) {
-                        			
-                        			if(targetRoom.users.size() >= targetRoom.MAX_PLAYER) {
-                        				dos.writeUTF("/alert|이미 인원이 가득 찬 방입니다!");
-                        				break;
-                        			}
-                        			
-                        			// 참가자 추가
-                        			targetRoom.users.add(UserName);
-                        			targetRoom.ready.put(UserName, false);
-                        			currentRoom = roomName;
-                        			
-                        			dos.writeUTF("/joinedRoom|" + currentRoom + "|" + UserName);
-                        			sendJoinedRoomList(targetRoom);
-                        		}
+                    		String roomName = args[1];
+                    		
+                    		// roomList에서 찾기 위함
+                    		RoomInfo targetRoom = null;
+                    		
+                    		for(int i = 0; i < roomList.size(); i++) {
+                    			RoomInfo room = roomList.get(i);
+                    			
+                    			if(room.roomName.equals(roomName)) {
+                    				targetRoom = room;
+                    				break;
+                    			}
+                    		}
+                    		
+                    		// 해당 방이 있을 경우
+                    		if(targetRoom != null) {
+                    			
+                    			if(targetRoom.users.size() >= targetRoom.MAX_PLAYER) {
+                    				dos.writeUTF("/alert|이미 인원이 가득 찬 방입니다!");
+                    				break;
+                    			}
+                    			
+                    			// 참가자 추가
+                    			targetRoom.users.add(UserName);
+                    			targetRoom.ready.put(UserName, false);
+                    			currentRoom = roomName;
+                    			
+                    			dos.writeUTF("/joinedRoom|" + currentRoom + "|" + UserName);
+                    			sendJoinedRoomList(targetRoom);
                     		}
                     		break;
                     		
-                    	case "/ready": // /ready/room/name/true/false
+                    	case "/ready":
                     		if(args.length == 4) {
                     			String userRoom = args[1];
                     			String userName = args[2];
@@ -441,11 +412,6 @@ public class GameServer extends JFrame {
                         				check = room;
                         				break;
                         			}
-                    			}
-                    			
-                    			if(check == null) {
-                    				AppendText("/ready 대상 방 없음 : " + userRoom);
-                    				break;
                     			}
                     			
                     			check.ready.put(userName, ready);
@@ -477,9 +443,7 @@ public class GameServer extends JFrame {
                     					}
                     				}
                     			}
-                    			catch(IOException e) { 
-                    				AppendText("writeUTF 실패 : " + e.getMessage());
-                    			}
+                    			catch(IOException e) { }
                     		}
                     		break;
                     		
@@ -515,9 +479,7 @@ public class GameServer extends JFrame {
                             						try {
                             							user.dos.writeUTF(gameStartMsg);
                             						}
-                            						catch(IOException e) { 
-                            							AppendText("writeUTF 실패" + e.getMessage());
-                            						}
+                            						catch(IOException e) { }
                             					}
                             				}
                             			}
@@ -525,9 +487,7 @@ public class GameServer extends JFrame {
                             				try {
                             					dos.writeUTF("/alert|아직 준비되지 않은 플레이어가 있습니다!");
                             				}
-                            				catch(IOException e) {
-                            					AppendText("writeUTF 실패" + e.getMessage());
-                            				}
+                            				catch(IOException e) { }
                             			}
                             			break;
                     				}
@@ -554,9 +514,7 @@ public class GameServer extends JFrame {
                     					    				try {
                     					    					user.dos.writeUTF("/error|다른 사람이 있기 때문에 나갈 수 없습니다!");
                     					    				}
-                    					    				catch(IOException e) { 
-                    					    					AppendText("writeUTF 실패" + e.getMessage());
-                    					    				}
+                    					    				catch(IOException e) { }
                     					    			}
                     					    		}
                     					    		break ALL; // switch문을 아예 빠져 나오기
@@ -572,9 +530,7 @@ public class GameServer extends JFrame {
                     					        			try {
                     					        				user.dos.writeUTF("/outRoomMe|" + cRoom + "|" + uName);
                     					        			}
-                    					        			catch(IOException e) { 
-                    					        				AppendText("writeUTF 실패" + e.getMessage());
-                    					        			}
+                    					        			catch(IOException e) { }
                     					        		}
                     					        	}
                     					        	roomList.remove(room);
@@ -611,6 +567,7 @@ public class GameServer extends JFrame {
                     					break;
                     				}
                     			}
+                				
                     		}
                     		break;
                     		
@@ -683,9 +640,7 @@ public class GameServer extends JFrame {
                     						user.dos.writeUTF("/emote|" + sender + "|" + emoteName);
                     					}
                     				}
-                    				catch(IOException e) {
-                    					AppendText("writeUTF 실패" + e.getMessage());
-                    				}
+                    				catch(IOException e) { }
                     			}
                     		}
                     		break;
