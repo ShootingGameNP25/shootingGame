@@ -145,9 +145,11 @@ public class ReadyPanel extends JPanel{
         		        		
         		String roomName = roomTable.getValueAt(row, 0).toString();
         		
-        		// 입장 전 기존 플레이어 목록 초기화
-        		playerPanel.resetAll();
-        		playerPanel.clearPlayers();
+                // 이미 방에 있으면 막기
+                if (client.getCurrentRoom() != null) {
+                    JOptionPane.showMessageDialog(null, "이미 방에 참가 중입니다.");
+                    return;
+                }
         		
         		currentRoom = roomName;
         		client.joinRoom(roomName);
