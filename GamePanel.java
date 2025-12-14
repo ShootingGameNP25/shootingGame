@@ -1,4 +1,4 @@
-// 475번쨰 줄 50으로 수정
+// 475번째 줄 50으로 수정 (사용자 메모 유지)
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Graphics;
@@ -22,15 +22,24 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
+/**
+ * GamePanel
+ *  - 좌측: GameArea(실제 게임)
+ *  - 우측 상단: PlayerPanel(gameMode=true) 2인 HUD
+ *  - 우측 하단: ChatPanel
+ */
 public class GamePanel extends JPanel {
 
     private GameFrame gameFrame;
+
+    // 네트워크 클라이언트(내 좌표/HP/점수 전송, 상대 좌표/HP/점수 수신 반영)
+    private GameClient client;
 
     private GameArea gameArea;
     private PlayerPanel rightTop;
     private ChatPanel rightBottom;
 
-    public GamePanel(GameFrame gameFrame) { // GameFrame gameFrame, ChatPanel sharedChatPanel
+    public GamePanel(GameFrame gameFrame) {
         this.gameFrame = gameFrame;
         setLayout(new BorderLayout());
 
@@ -57,6 +66,35 @@ public class GamePanel extends JPanel {
         add(horizonSplit, BorderLayout.CENTER);
     }
 
+    public void setClient(GameClient client) {
+        this.client = client;
+    }
+
+    public PlayerPanel getRightTopPlayerPanel() {
+        return rightTop;
+    }
+
+    public ChatPanel getChatPanel() {
+        return rightBottom;
+    }
+
+    /** 서버에서 받은 상대(다른 유저) 비행기 좌표를 게임 화면에 반영 */
+    public void updateOtherPlane(String name, int x, int y) {
+        if (gameArea != null) {
+            gameArea.updateOtherPlane(name, x, y);
+        }
+    }
+
+    /** 서버에서 받은 HP 반영 (우측 HUD) */
+    public void updateHpById(String id, int hp, int maxHp) {
+        if (rightTop != null) rightTop.updateHpById(id, hp, maxHp);
+    }
+
+    /** 서버에서 받은 점수 반영 (우측 HUD) */
+    public void updateScoreById(String id, int score) {
+        if (rightTop != null) rightTop.updateScoreById(id, score);
+    }
+
     public void startGame() {
         if (gameArea != null) gameArea.startGame();
     }
@@ -65,12 +103,15 @@ public class GamePanel extends JPanel {
         if (gameArea != null) gameArea.stopGame();
     }
 
-    public void setPlayerNickname(String nickname) {
-        if (rightTop != null) rightTop.setNickname(nickname);
-    }
-    
-    public ChatPanel getChatPanel() {
-    	return rightBottom;
+    /**
+     * ✅ 핵심: “재시작”용
+     * 이전 게임 화면이 남지 않게 모든 상태 초기화 후 시작
+     */
+    public void resetAndStartGame() {
+        if (gameArea != null) {
+            gameArea.resetGameState();
+            gameArea.startGame();
+        }
     }
 
     // =====================================================================
@@ -94,6 +135,18 @@ public class GamePanel extends JPanel {
         private Image planeImg;
         private int planeW = 64, planeH = 64;
         private int planeX = 0, planeY = 0;
+
+        // ===== Other Player (상대 비행기) =====
+        private int otherPlaneX = -1, otherPlaneY = -1;
+        private boolean otherPlaneVisible = false;
+        private String otherPlayerName = null;
+
+        // ===== 좌표 전송 최적화 =====
+        private int lastSentX = Integer.MIN_VALUE;
+        private int lastSentY = Integer.MIN_VALUE;
+        private int posSendCooldown = 0;
+        private final int POS_SEND_INTERVAL_FRAMES = 2;
+
         private int planeSpeed = 5;
 
         private boolean up, down, left, right;
@@ -149,6 +202,9 @@ public class GamePanel extends JPanel {
         // ===== Main Timer
         private Timer mainTimer;
 
+        // ===== GameOver 전송 1회만 =====
+        private boolean gameOverSent = false;
+
         public GameArea() {
             setOpaque(true);
             setFocusable(true);
@@ -167,13 +223,13 @@ public class GamePanel extends JPanel {
 
             // Player
             player = new Player(gameLevel);
-            
+
             // 클릭하면 게임 영역이 포커스를 가져감
             addMouseListener(new MouseAdapter() {
-            	@Override
-            	public void mousePressed(MouseEvent e) {
-            		requestFocusInWindow();
-            	}
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    requestFocusInWindow();
+                }
             });
 
             // Resize event
@@ -186,7 +242,6 @@ public class GamePanel extends JPanel {
                     planeX = (getWidth() - planeW) / 2;
                     planeY = (getHeight() - planeH) - 40;
 
-                    // 업그레이드 패널도 전체를 덮도록 사이즈 조정
                     if (upgradePanel != null) {
                         upgradePanel.setBounds(0, 0, getWidth(), getHeight());
                     }
@@ -199,35 +254,32 @@ public class GamePanel extends JPanel {
             mainTimer = new Timer(16, ev -> gameLoop());
 
             // ===== 업그레이드 패널 생성 및 리스너 연결 =====
-            setLayout(null); // GameArea에 직접 자식 컴포넌트(UpgradePanel) 올리기
+            setLayout(null);
 
             upgradePanel = new UpgradePanel(new UpgradePanel.UpgradeListener() {
-            	@Override
-            	public void onBulletCountUp() {
-            	    bulletCount++;
-            	    rightTop.addUpgradeIcon(upgradePanel.getIconBullet());
-            	}
+                @Override
+                public void onBulletCountUp() {
+                    bulletCount++;
+                    rightTop.addUpgradeIcon(upgradePanel.getIconBullet());
+                }
 
-            	@Override
-            	public void onFireSpeedUp() {
-            	    if (fireIntervalFrames > 3)
-            	        fireIntervalFrames -= 3;
+                @Override
+                public void onFireSpeedUp() {
+                    if (fireIntervalFrames > 3)
+                        fireIntervalFrames -= 3;
+                    rightTop.addUpgradeIcon(upgradePanel.getIconSpeed());
+                }
 
-            	    rightTop.addUpgradeIcon(upgradePanel.getIconSpeed());
-            	}
-
-            	@Override
-            	public void onDamageUp() {
-            	    bulletDamage++;
-            	    rightTop.addUpgradeIcon(upgradePanel.getIconDamage());
-            	}
-
+                @Override
+                public void onDamageUp() {
+                    bulletDamage++;
+                    rightTop.addUpgradeIcon(upgradePanel.getIconDamage());
+                }
             });
 
             upgradePanel.setBounds(0, 0, getWidth(), getHeight());
             add(upgradePanel);
 
-            // 10초 업그레이드 선택 타이머
             upgradeTimer = new Timer(10_000, e -> {
                 hideUpgradePanel();
                 upgradeTimer.stop();
@@ -235,9 +287,90 @@ public class GamePanel extends JPanel {
             upgradeTimer.setRepeats(false);
         }
 
+        /** ✅ 재시작용: 내부 게임 상태 싹 초기화 */
+        public void resetGameState() {
+            // 타이머/업그레이드 정리
+            try {
+                if (mainTimer != null && mainTimer.isRunning()) mainTimer.stop();
+            } catch (Exception ignore) {}
+
+            try {
+                if (upgradeTimer != null && upgradeTimer.isRunning()) upgradeTimer.stop();
+            } catch (Exception ignore) {}
+
+            upgradeShown = false;
+            if (upgradePanel != null) upgradePanel.setVisible(false);
+
+            // 점수/레벨 초기화
+            score = 0;
+            gameLevel = 1;
+
+            // 플레이어 초기화
+            player = new Player(gameLevel);
+            gameOverSent = false;
+            playerInvincibleFrames = 0;
+
+            // 내 비행기 위치 초기화
+            planeX = Math.max(0, (getWidth() - planeW) / 2);
+            planeY = Math.max(0, (getHeight() - planeH) - 40);
+
+            up = down = left = right = false;
+
+            // 상대 비행기 초기화
+            otherPlaneVisible = false;
+            otherPlaneX = otherPlaneY = -1;
+            otherPlayerName = null;
+
+            // 좌표 전송 최적화 변수 초기화
+            lastSentX = Integer.MIN_VALUE;
+            lastSentY = Integer.MIN_VALUE;
+            posSendCooldown = 0;
+
+            // 탄환/몬스터 초기화
+            bullets.clear();
+            monsters.clear();
+
+            // 몬스터/보스 관련 초기화
+            monstersKilled = 0;
+            monsterRowTimer = 0;
+
+            bossAppeared = false;
+            bossBullets.clear();
+            boss.reset();
+            resetBossFireCooldown();
+
+            // 보스 스레드는 새로
+            bossAttack = new BossAttack(boss);
+
+            // 업그레이드 값 초기화
+            bulletDamage = 1;
+            bulletCount = 1;
+            fireCooldown = 0;
+            fireIntervalFrames = 10;
+
+            // HUD 초기화 + 서버 전송
+            if (rightTop != null) {
+                rightTop.setHp(player.getHp(), player.getMaxHp());
+                rightTop.setScore(0);
+            }
+
+            if (GamePanel.this.client != null) {
+                GamePanel.this.client.sendHp(player.getHp(), player.getMaxHp());
+                GamePanel.this.client.sendScore(0);
+            }
+
+            repaint();
+        }
+
         public void startGame() {
+            // 시작 시 내 HP/점수 로컬 표시 + 서버 전송
             rightTop.setHp(player.getHp(), player.getMaxHp());
             rightTop.setScore(0);
+
+            if (GamePanel.this.client != null) {
+                GamePanel.this.client.sendHp(player.getHp(), player.getMaxHp());
+                GamePanel.this.client.sendScore(0);
+            }
 
             if (!mainTimer.isRunning()) mainTimer.start();
             SwingUtilities.invokeLater(() -> requestFocusInWindow());
@@ -245,6 +378,22 @@ public class GamePanel extends JPanel {
 
         public void stopGame() {
             if (mainTimer.isRunning()) mainTimer.stop();
+        }
+
+        // ✅ 상대 비행기 좌표 반영
+        public void updateOtherPlane(String name, int x, int y) {
+            try {
+                if (GamePanel.this.client != null && name != null
+                        && name.equals(GamePanel.this.client.getUserName())) {
+                    return;
+                }
+            } catch (Exception ignore) {}
+
+            this.otherPlayerName = name;
+            this.otherPlaneX = x;
+            this.otherPlaneY = y;
+            this.otherPlaneVisible = true;
+            repaint();
         }
 
         // ========================= 업그레이드 패널 제어 =========================
@@ -266,19 +415,18 @@ public class GamePanel extends JPanel {
             upgradePanel.setVisible(false);
             upgradeShown = false;
 
-            if (upgradeTimer.isRunning()) {
+            if (upgradeTimer != null && upgradeTimer.isRunning()) {
                 upgradeTimer.stop();
             }
 
-            mainTimer.start(); // 게임 재시작
+            mainTimer.start();
         }
 
         // ========================= 키 바인딩 =========================
         private void setupKeyBindings() {
-            InputMap im = getInputMap(WHEN_FOCUSED); // WHEN_IN_FOCUSED_WINDOW
+            InputMap im = getInputMap(WHEN_FOCUSED);
             ActionMap am = getActionMap();
 
-            // LEFT
             im.put(KeyStroke.getKeyStroke("pressed A"), "left_pressed");
             im.put(KeyStroke.getKeyStroke("released A"), "left_released");
             am.put("left_pressed", new AbstractAction() {
@@ -290,7 +438,6 @@ public class GamePanel extends JPanel {
                 public void actionPerformed(ActionEvent e) { left = false; }
             });
 
-            // RIGHT
             im.put(KeyStroke.getKeyStroke("pressed D"), "right_pressed");
             im.put(KeyStroke.getKeyStroke("released D"), "right_released");
             am.put("right_pressed", new AbstractAction() {
@@ -302,7 +449,6 @@ public class GamePanel extends JPanel {
                 public void actionPerformed(ActionEvent e) { right = false; }
             });
 
-            // UP
             im.put(KeyStroke.getKeyStroke("pressed W"), "up_pressed");
             im.put(KeyStroke.getKeyStroke("released W"), "up_released");
             am.put("up_pressed", new AbstractAction() {
@@ -314,7 +460,6 @@ public class GamePanel extends JPanel {
                 public void actionPerformed(ActionEvent e) { up = false; }
             });
 
-            // DOWN
             im.put(KeyStroke.getKeyStroke("pressed S"), "down_pressed");
             im.put(KeyStroke.getKeyStroke("released S"), "down_released");
             am.put("down_pressed", new AbstractAction() {
@@ -326,7 +471,6 @@ public class GamePanel extends JPanel {
                 public void actionPerformed(ActionEvent e) { down = false; }
             });
 
-            // SHOOT
             im.put(KeyStroke.getKeyStroke("pressed SPACE"), "shoot");
             am.put("shoot", new AbstractAction() {
                 @Override
@@ -337,13 +481,13 @@ public class GamePanel extends JPanel {
         }
 
         private void shootManual() {
-            if (upgradeShown) return;  // 업그레이드 중엔 발사 막기
+            if (upgradeShown) return;
             fireBulletFromPlane();
         }
 
         // ========================= 게임 루프 =========================
         private void gameLoop() {
-            if (upgradeShown) return; // 업그레이드 화면 뜨면 게임 중지
+            if (upgradeShown) return;
 
             // 배경 스크롤
             bgY1 += bgSpeed;
@@ -362,6 +506,18 @@ public class GamePanel extends JPanel {
 
             planeX = Math.max(0, Math.min(getWidth() - planeW, planeX + dx));
             planeY = Math.max(0, Math.min(getHeight() - planeH, planeY + dy));
+
+            // 내 좌표를 서버로 전송
+            if (GamePanel.this.client != null) {
+                if (posSendCooldown > 0) posSendCooldown--;
+                boolean changed = (planeX != lastSentX) || (planeY != lastSentY);
+                if (changed && posSendCooldown == 0) {
+                    GamePanel.this.client.sendMove(planeX, planeY);
+                    lastSentX = planeX;
+                    lastSentY = planeY;
+                    posSendCooldown = POS_SEND_INTERVAL_FRAMES;
+                }
+            }
 
             // 몬스터 스폰
             monsterRowTimer++;
@@ -388,9 +544,13 @@ public class GamePanel extends JPanel {
 
             if (playerInvincibleFrames > 0) playerInvincibleFrames--;
 
+            // 게임오버 처리
             if (player.isDead()) {
+                if (!gameOverSent && GamePanel.this.client != null) {
+                    gameOverSent = true;
+                    GamePanel.this.client.sendGameOver(score);
+                }
                 stopGame();
-                System.out.println("GAME OVER");
             }
 
             repaint();
@@ -434,20 +594,28 @@ public class GamePanel extends JPanel {
 
             if (playerInvincibleFrames > 0) return;
 
-            Iterator<Monster> it = monsters.iterator();
-            while (it.hasNext()) {
-                Monster m = it.next();
-
+            for (Monster m : monsters) {
                 if (playerRect.intersects(m.getBounds())) {
-                    player.hit(1);
-                    playerInvincibleFrames = 30;
-
-                    rightTop.setHp(player.getHp(), player.getMaxHp());
+                    applyDamageToPlayer(1);
+                    break;
                 }
             }
         }
 
-        // ========================= 총알 여러개 발사 =========================
+        private void applyDamageToPlayer(int dmg) {
+            if (playerInvincibleFrames > 0) return;
+
+            player.hit(dmg);
+            playerInvincibleFrames = 30;
+
+            rightTop.setHp(player.getHp(), player.getMaxHp());
+
+            if (GamePanel.this.client != null) {
+                GamePanel.this.client.sendHp(player.getHp(), player.getMaxHp());
+            }
+        }
+
+        // ========================= 총알 =========================
         private void fireBulletFromPlane() {
             int baseX = planeX + planeW / 2 - bulletW / 2;
             int baseY = planeY - bulletH;
@@ -498,8 +666,8 @@ public class GamePanel extends JPanel {
 
                             score += 10;
                             rightTop.setScore(score);
+                            if (GamePanel.this.client != null) GamePanel.this.client.sendScore(score);
 
-                            // 몬스터 50마리 잡으면 보스 등장
                             if (!bossAppeared && monstersKilled >= 10) {
                                 bossAppeared = true;
 
@@ -526,12 +694,13 @@ public class GamePanel extends JPanel {
                     if (boss.isDead()) {
                         score += 100;
                         rightTop.setScore(score);
+                        if (GamePanel.this.client != null) GamePanel.this.client.sendScore(score);
 
                         bossAppeared = false;
                         bossBullets.clear();
                         monstersKilled = 0;
 
-                        showUpgradePanel(); // 업그레이드 패널 띄우기
+                        showUpgradePanel();
                     }
                 }
             }
@@ -565,6 +734,7 @@ public class GamePanel extends JPanel {
             double dy = playerCenterY - bossCenterY;
 
             double len = Math.sqrt(dx * dx + dy * dy);
+            if (len == 0) len = 1;
             dx /= len;
             dy /= len;
 
@@ -589,20 +759,15 @@ public class GamePanel extends JPanel {
                 b.x += b.vx;
                 b.y += b.vy;
 
-                if (b.x + bossBulletSize < 0 || b.x > getWidth() ||
-                        b.y + bossBulletSize < 0 || b.y > getHeight()) {
+                if (b.x + bossBulletSize < 0 || b.x > getWidth()
+                        || b.y + bossBulletSize < 0 || b.y > getHeight()) {
                     it.remove();
                     continue;
                 }
 
                 if (playerInvincibleFrames <= 0 &&
                         b.getBounds().intersects(playerRect)) {
-
-                    player.hit(1);
-                    playerInvincibleFrames = 30;
-
-                    rightTop.setHp(player.getHp(), player.getMaxHp());
-
+                    applyDamageToPlayer(1);
                     it.remove();
                 }
             }
@@ -617,10 +782,7 @@ public class GamePanel extends JPanel {
             if (playerInvincibleFrames > 0) return;
 
             if (playerRect.intersects(bossRect)) {
-                player.hit(10);
-                playerInvincibleFrames = 30;
-
-                rightTop.setHp(player.getHp(), player.getMaxHp());
+                applyDamageToPlayer(10);
             }
         }
 
@@ -660,6 +822,12 @@ public class GamePanel extends JPanel {
 
             if (bossAppeared && !boss.isDead()) boss.bossDraw(g);
 
+            // 상대 비행기
+            if (otherPlaneVisible && otherPlaneX >= 0 && otherPlaneY >= 0) {
+                g.drawImage(planeImg, otherPlaneX, otherPlaneY, planeW, planeH, null);
+            }
+
+            // 내 비행기
             g.drawImage(planeImg, planeX, planeY, planeW, planeH, null);
 
             for (Bullet b : bullets) {
@@ -693,7 +861,7 @@ public class GamePanel extends JPanel {
             }
 
             Rectangle getBounds() {
-                return new Rectangle((int)x, (int)y, bossBulletSize, bossBulletSize);
+                return new Rectangle((int) x, (int) y, bossBulletSize, bossBulletSize);
             }
         }
 
@@ -781,8 +949,8 @@ public class GamePanel extends JPanel {
             }
 
             public Rectangle getHitBounds() {
-                int mx = (int)(width * 0.15);
-                int my = (int)(height * 0.2);
+                int mx = (int) (width * 0.15);
+                int my = (int) (height * 0.2);
                 return new Rectangle(
                         x + mx,
                         y + my,
@@ -821,6 +989,5 @@ public class GamePanel extends JPanel {
 
             boolean isDead() { return hp <= 0; }
         }
-
     } // GameArea end
 } // GamePanel end
