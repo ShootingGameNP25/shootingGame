@@ -21,20 +21,20 @@ public class GameClient extends Thread {
     // 현재 본인이 속한 방. 없으면 null값
     private String currentRoom = null;
     
-    // 준비 완료 토글
-    private boolean isReady = false;
-    
     // 방 생성 dialog 정보를 얻기 위한 변수
     private JDialog dialog;
     
     // 방 삭제 delLog 정보를 얻기 위한 변수
     private JDialog delLog;
     
+    // 준비 완료 토글
+    private boolean isReady = false;
+    
     // IP와 Port는 GameFrame에서 고정된 값을 받아옴
     private String IPAddress;
     private String PortNumber;
     
-    private JLabel lMessage;
+    private JLabel lMessage; // GameFrame의 메시지 라벨을 업데이트
     private GamePanel gamePanel;
     private ChatPanel chatPanel;
     private ReadyPanel readyPanel;
@@ -75,11 +75,10 @@ public class GameClient extends Thread {
             dis = new DataInputStream(socket.getInputStream());
             
             // 최초 로그인 (기존 방식 유지)
-            dos.writeUTF("/login|" + UserName);
+            dos.writeUTF("/login " + UserName);
             
             this.start(); // 수신 스레드 시작
-        } 
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             lMessage.setText("연결 실패");
         }
@@ -104,9 +103,7 @@ public class GameClient extends Thread {
     	try {
     		dos.writeUTF("/roomchat|" + currentRoom + "|" + msg);
     	}
-    	catch(IOException e) { 
-    		
-    	}
+    	catch(IOException e) { }
     }
     
     public void sendChat(String msg) {
@@ -119,8 +116,7 @@ public class GameClient extends Thread {
                 // 방 채팅
                 dos.writeUTF("/roomchat|" + currentRoom + "|" + msg);
             }
-        } 
-        catch (IOException e) { }
+        } catch (IOException e) { }
     }
     
     public void sendMove(int x, int y) {
