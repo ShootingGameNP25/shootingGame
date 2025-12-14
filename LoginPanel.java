@@ -17,6 +17,7 @@ import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 
 public class LoginPanel extends JPanel{
+	// 로그인 성공시 저장되는 사용자 이름
 	private String userName = "";
 	
 	private JLabel name = new JLabel("이름 : ");
@@ -25,7 +26,10 @@ public class LoginPanel extends JPanel{
 	private JPasswordField pwTf = new JPasswordField(10);
 	private JButton loginBtn = new JButton("로그인");
 	private JButton upBtn = new JButton("회원가입");
+	
 	private GameFrame gameFrame;
+	
+	// 로그인 상태 확인용 플래드
 	private boolean found;
 	private boolean ok;
 	
@@ -85,7 +89,6 @@ public class LoginPanel extends JPanel{
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				String result = makeInfo();
-				//lMessage.setMessage(result);
 				gameFrame.getLMessage().setText(result);
 			}
 		});
